@@ -1,25 +1,148 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1 template Assignment"
+author: "Anna Man"
+date: "2/11/2022"
+output: html_document
 ---
+
+# Course Assignment 1 for Reproducible Research 
+
+### This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
 
 
 ## Loading and preprocessing the data
 
+```{r starting files}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+
+activity <- read.csv("./data/activity.csv")
+names(activity)
+
+activity$date <- as.POSIXct(activity$date, format = "%Y-%m-%d")
+weekday <- weekdays(activity$date)
+
+act_na_omit <- na.omit(activity)
+act_na_omit_tot <- aggregate(steps ~ date, act_na_omit, sum)
+
+summary(act_na_omit)
+names(act_na_omit)
+
+```
 
 
-## What is mean total number of steps taken per day?
+## Q1 - What is mean total number of steps taken per day?
+
+```{r steps mean median, echo = TRUE}
+
+act_tot_step <- with(act_na_omit_tot, aggregate(steps, by = list(date), sum))
+
+names(act_tot_step) <- c("date", "steps")
+hist(act_tot_step$steps, main = "Total steps per Day", xlab = "Total steps", col = "lightblue", ylim = c(0,15), breaks = 20)
+
+```
 
 
+```{r calculate steps, echo = TRUE}
 
-## What is the average daily activity pattern?
+mean(act_tot_step$steps)
+median(act_tot_step$steps)
+
+```
 
 
+## Q2 - What is the average daily activity pattern?
 
-## Imputing missing values
+```{r process daily avg, echo = TRUE}
+
+tot_act_avg <- aggregate(steps ~ interval, act_na_omit, mean)
+
+```
+
+```{r plot daily avg, echo = TRUE}
+
+library(ggplot2)
+
+ggplot(tot_act_avg, aes(interval, steps)) +
+        geom_line() +
+        ggtitle("Steps by Interval") +
+        xlab("Interval") +
+        ylab("Number of steps")
+
+```
 
 
+## Q3 - Imputing missing values
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r sum of nas, echo = TRUE}
+
+sum(is.na(activity$steps))
+
+```
+
+```{r fill in nas, echo = TRUE}
+
+fillin_steps <- function(steps, interval) {
+        fillin_act <- NA
+        if (!is.na(steps))
+                fillin_act <- c(steps)
+        else
+                fillin_act <- (tot_act_avg[tot_act_avg$interval == interval, "steps"])
+        return(fillin_act)
+}
+
+compl_act <- activity
+compl_act$steps <- mapply(fillin_steps, compl_act$steps, compl_act$interval)
+
+```
+
+
+```{r fll in hist, echo = TRUE}
+
+tot_act_steps <- aggregate(steps ~ date, compl_act, sum)
+hist(
+        tot_act_steps$steps, 
+        main = "Total steps per day", 
+        xlab="Steps per day", 
+        ylab="Frequency", 
+        col = "lightgreen", 
+        ylim = c(0,20),
+        breaks = 20
+)
+
+```
+
+
+```{r calculate, echo = TRUE}
+
+mean(tot_act_steps$steps) 
+median(tot_act_steps$steps) 
+
+```
+
+
+## Q4 - Are there differences in activity patterns between weekdays and weekends?
+
+```{r weekdays weekends, echo = TRUE}
+
+activity$date <- as.Date(strptime(activity$date, format ="%Y-%m-%d")) 
+
+activity$day <- factor(ifelse(as.POSIXlt(activity$date)$wday %in% c(0,6), 'weekend', 'weekday'))
+
+wk_act_avg <- aggregate(steps ~ interval + day, activity, mean)
+
+```
+
+```{r panel plot, echo = TRUE}
+
+library(ggplot2)
+ggplot(wk_act_avg, aes(interval, steps)) + 
+        geom_line() + 
+        facet_grid(day ~ .) +
+        xlab("5-minute interval") + 
+        ylab("Average number of steps")
+
+```
+
